@@ -4,12 +4,17 @@ namespace TP7.Models
     public class Producto
     {
 
-        int idProducto { get; set; }
-        string descripcion { get; set; }
-        int precio { get; set; }
+        public int idProducto { get; set; }
+        public string descripcion { get; set; }
+        public int precio { get; set; }
 
 
-        Producto() { }
+        Producto(string desc, int prec)
+        {
+            this.idProducto = 0;
+            this.descripcion = desc;
+            this.precio = prec;
+        }
 
         Producto(int id, string desc, int prec)
         {
