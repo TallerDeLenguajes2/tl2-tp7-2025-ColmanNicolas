@@ -45,52 +45,65 @@ namespace TP7.Repositorios
         }
 
         // Listar todos los Presupuestos registrados. (devuelve un List de Presupuestos)
-        public List<Presupuesto> ListarPresupuestos()
+public List<Presupuesto> ListarPresupuestos()
+{
+    // 1. Usamos un Diccionario para rastrear los presupuestos que ya vimos
+    var presupuestosDict = new Dictionary<int, Presupuesto>();
+
+    using var conexion = new SqliteConnection(_cadenaConexion);
+    conexion.Open();
+
+    string sql = @"
+        SELECT 
+            p.idPresupuesto, p.NombreDestinatario, p.FechaCreacion,
+            pd.Cantidad,
+            prod.idProducto, prod.Descripcion, prod.Precio
+        FROM Presupuestos p
+        INNER JOIN PresupuestosDetalle pd ON p.idPresupuesto = pd.idPresupuesto
+        INNER JOIN Productos prod ON pd.idProducto = prod.idProducto
+        ORDER BY p.idPresupuesto";
+
+    using var cmd = new SqliteCommand(sql, conexion);
+    using var lector = cmd.ExecuteReader();
+
+    while (lector.Read())
+    {
+        int idPresupuestoActual = Convert.ToInt32(lector["idPresupuesto"]);
+        Presupuesto presupuestoActual;
+
+        // 2. Verificamos si ya tenemos este presupuesto en el diccionario
+        if (!presupuestosDict.TryGetValue(idPresupuestoActual, out presupuestoActual))
         {
-            List<Presupuesto> presupuestos = new List<Presupuesto>();
-
-            using var conexion = new SqliteConnection(_cadenaConexion);
-            conexion.Open();
-
-            string sql = "select idPresupuesto,NombreDestinatario,FechaCreacion, idProducto,Descripcion,Precio, Cantidad from Presupuestos p inner join PresupuestosDetalle pd using (idPresupuesto) inner join Producto prod using (idProducto) ORDER BY p.idPresupuesto";
-
-            using var cmd = new SqliteCommand(sql, conexion);
-
-            using var lector = cmd.ExecuteReader();
-
-            bool mismoPresupuesto = false;
-
-            Producto auxProducto = null;
-            Presupuesto auxPresupuesto = null;
-            int auxIdPresupuesto = -1;
-
-            while (lector.Read())
-            {
-                int idPresupuestoActual = Convert.ToInt32(lector["idPresupuesto"]);
-
-                if (idPresupuestoActual != auxIdPresupuesto)
-                {
-
-                    if (auxIdPresupuesto != -1)  // en la primera lectura evito hacer un Add del nuevo presupuesto
-                    {
-                        presupuestos.Add(auxPresupuesto);  // agrego el presupuesto al leer que empieza una nueva fila de presupuesto
-                    }
-
-                    auxProducto = new Producto(Convert.ToInt32(lector["idProducto"]), lector["Descripcion"].ToString(), Convert.ToInt32(lector["Precio"]));
-                    PresupuestoDetalle detalle = new PresupuestoDetalle(auxProducto, Convert.ToInt32(lector["Cantidad"]));
-                    List<PresupuestoDetalle> detalles = [detalle];
-
-                    auxPresupuesto = new Presupuesto(Convert.ToInt32(lector["idPresupuesto"]), lector["NombreDestinatario"].ToString(),
-                    DateOnly.FromDateTime(Convert.ToDateTime(lector["FechaCreacion"])), detalles);
-                }
-                else
-                {
-                    PresupuestoDetalle detalle = new PresupuestoDetalle(auxProducto, Convert.ToInt32(lector["Cantidad"]));
-                    auxPresupuesto.AgregarPresupuestoDetalle(detalle);
-                }
-            }
-            return presupuestos;
+            // 3. Si NO existe, es nuevo. Lo creamos y lo añadimos al diccionario.
+            presupuestoActual = new Presupuesto(
+                idPresupuestoActual,
+                lector["NombreDestinatario"].ToString(),
+                DateOnly.FromDateTime(Convert.ToDateTime(lector["FechaCreacion"])),
+                new List<PresupuestoDetalle>() // Empezamos con lista vacía
+            );
+            presupuestosDict.Add(idPresupuestoActual, presupuestoActual);
         }
+
+        // 4. Creamos el Producto y el Detalle de ESTA fila
+        Producto productoDeEstaFila = new Producto(
+            Convert.ToInt32(lector["idProducto"]),
+            lector["Descripcion"].ToString(),
+            Convert.ToInt32(lector["Precio"])
+        );
+
+        PresupuestoDetalle detalleDeEstaFila = new PresupuestoDetalle(
+            productoDeEstaFila,
+            Convert.ToInt32(lector["Cantidad"])
+        );
+
+        // 5. Añadimos el detalle al presupuesto (que ya sea que existía o lo acabamos de crear)
+        presupuestoActual.AgregarPresupuestoDetalle(detalleDeEstaFila);
+    }
+
+    // 6. Al final, solo devolvemos todos los valores del diccionario.
+    //    (Esto soluciona el "Error 2" de perder el último ítem)
+    return presupuestosDict.Values.ToList();
+}
 
         //● Obtener detalles de un Presupuesto por su ID. (recibe un Id y devuelve un Presupuesto con sus productos y cantidades)
         public Presupuesto BuscarPresupuestoPorId(int id)
@@ -100,7 +113,7 @@ namespace TP7.Repositorios
             using var conexion = new SqliteConnection(_cadenaConexion);
             conexion.Open();
 
-            string sql = "select idPresupuesto,NombreDestinatario,FechaCreacion, idProducto,Descripcion,Precio, Cantidad from Presupuestos p inner join PresupuestosDetalle pd using (idPresupuesto) inner join Producto prod using (idProducto) WHERE idPresupuesto = @idPres";
+            string sql = "select idPresupuesto,NombreDestinatario,FechaCreacion, idProducto,Descripcion,Precio, Cantidad from Presupuestos p inner join PresupuestosDetalle pd using (idPresupuesto) inner join Productos prod using (idProducto) WHERE idPresupuesto = @idPres";
 
             using var cmd = new SqliteCommand(sql, conexion);
 
@@ -137,7 +150,7 @@ namespace TP7.Repositorios
             return presupuesto;
         }
 
-        public void AgregarProductoAPresupuesto(int idProducto, int idPresupuesto)
+        public void AgregarProductoAlPresupuesto(int idPresupuesto, PresupuestoDetalle presupuestoDetalle)
         {
             using var conexion = new SqliteConnection(_cadenaConexion);
             conexion.Open();
@@ -146,13 +159,14 @@ namespace TP7.Repositorios
 
             string sqlUpdate = @"
             UPDATE PresupuestosDetalle 
-            SET Cantidad = Cantidad + 1 
+            SET Cantidad = @Canti  
             WHERE idPresupuesto = @idPres AND idProducto = @idProd";
 
             using var cmdUpdate = new SqliteCommand(sqlUpdate, conexion, transaccion);
 
             cmdUpdate.Parameters.Add(new SqliteParameter("@idPres", idPresupuesto));
-            cmdUpdate.Parameters.Add(new SqliteParameter("@idProd", idProducto));
+            cmdUpdate.Parameters.Add(new SqliteParameter("@idProd", presupuestoDetalle.producto.idProducto));
+            cmdUpdate.Parameters.Add(new SqliteParameter("@Canti", presupuestoDetalle.cantidad));
 
             int filasAfectadas = cmdUpdate.ExecuteNonQuery();
 
@@ -160,11 +174,12 @@ namespace TP7.Repositorios
             {
                 string sqlInsert = @"
                 INSERT INTO PresupuestosDetalle (idPresupuesto, idProducto, Cantidad) 
-                VALUES (@idPres, @idProd, 1)";
+                VALUES (@idPres, @idProd, @Canti)";
 
                 using var cmdInsert = new SqliteCommand(sqlInsert, conexion, transaccion);
                 cmdInsert.Parameters.Add(new SqliteParameter("@idPres", idPresupuesto));
-                cmdInsert.Parameters.Add(new SqliteParameter("@idProd", idProducto));
+                cmdInsert.Parameters.Add(new SqliteParameter("@idProd",  presupuestoDetalle.producto.idProducto));
+                cmdUpdate.Parameters.Add(new SqliteParameter("@Canti", presupuestoDetalle.cantidad));
 
                 cmdInsert.ExecuteNonQuery();
 

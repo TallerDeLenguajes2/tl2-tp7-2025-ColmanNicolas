@@ -3,8 +3,8 @@ namespace TP7.Models
     public class PresupuestoDetalle
     {
          
-        public Producto producto;
-        public int cantidad;
+        public Producto producto{ get; set; }
+        public int cantidad { get; set; } 
 
         public PresupuestoDetalle(){
             this.producto = null;
