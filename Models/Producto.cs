@@ -9,14 +9,14 @@ namespace TP7.Models
         public int precio { get; set; }
 
 
-        Producto(string desc, int prec)
+        public Producto(string desc, int prec)
         {
             this.idProducto = 0;
             this.descripcion = desc;
             this.precio = prec;
         }
 
-        Producto(int id, string desc, int prec)
+        public Producto(int id, string desc, int prec)
         {
             this.idProducto = id;
             this.descripcion = desc;

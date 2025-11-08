@@ -4,12 +4,19 @@ namespace TP7.Models
    {
       public
           const double IVA = 0.21;
-      int idPresupuesto { get; set; }
-      string nombreDestinatario { get; set; }
-      DateOnly FechaCreacion { get; set; }
-      List<PresupuestoDetalle> PresupuestosDetalle { get; set; }
+      public int idPresupuesto { get; set; }
+      public string nombreDestinatario { get; set; }
+      public DateOnly FechaCreacion { get; set; }
+      public List<PresupuestoDetalle> PresupuestosDetalle { get; set; }
 
-      public Presupuesto( string nombre, DateOnly fecha, List<PresupuestoDetalle> presupuestoDetalles)
+      public Presupuesto()
+      {
+         this.idPresupuesto = 0;
+         this.nombreDestinatario = "Presupuesto vacio";
+         this.FechaCreacion = new DateOnly(1900, 1, 1);
+         this.PresupuestosDetalle = [];
+      }
+      public Presupuesto(string nombre, DateOnly fecha, List<PresupuestoDetalle> presupuestoDetalles)
       {
          this.idPresupuesto = 0;
          this.nombreDestinatario = nombre;
@@ -44,6 +51,10 @@ namespace TP7.Models
             cantidad += itemDetalle.cantidad;
          }
          return cantidad;
+      }
+      public void AgregarPresupuestoDetalle(PresupuestoDetalle detalle)
+      {
+         this.PresupuestosDetalle.Add(detalle);
       }
    }
 }
