@@ -72,7 +72,7 @@ namespace TP7.Repositorios
             using var conexion = new SqliteConnection(_cadenaConexion);
             conexion.Open();
 
-            string sql = "select idProducto, Descripcion, Precio from Productos where id =@idProd";
+            string sql = "select idProducto, Descripcion, Precio from Productos where idProducto =@idProd";
 
             using var comando = new SqliteCommand(sql, conexion);
 

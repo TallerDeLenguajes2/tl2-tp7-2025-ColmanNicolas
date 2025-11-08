@@ -193,9 +193,3 @@ namespace TP7.Repositorios
         }
     }
 }
-
-
-
-
-● Agregar un producto y una cantidad a un presupuesto (recibe un Id)
-● Eliminar un Presupuesto por ID*/
