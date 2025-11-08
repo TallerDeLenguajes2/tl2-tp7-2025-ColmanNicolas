@@ -45,15 +45,15 @@ namespace TP7.Repositorios
         }
 
         // Listar todos los Presupuestos registrados. (devuelve un List de Presupuestos)
-public List<Presupuesto> ListarPresupuestos()
-{
-    // 1. Usamos un Diccionario para rastrear los presupuestos que ya vimos
-    var presupuestosDict = new Dictionary<int, Presupuesto>();
+        public List<Presupuesto> ListarPresupuestos()
+        {
+            // 1. Usamos un Diccionario para rastrear los presupuestos que ya vimos
+            var presupuestosDict = new Dictionary<int, Presupuesto>();
 
-    using var conexion = new SqliteConnection(_cadenaConexion);
-    conexion.Open();
+            using var conexion = new SqliteConnection(_cadenaConexion);
+            conexion.Open();
 
-    string sql = @"
+            string sql = @"
         SELECT 
             p.idPresupuesto, p.NombreDestinatario, p.FechaCreacion,
             pd.Cantidad,
@@ -63,47 +63,47 @@ public List<Presupuesto> ListarPresupuestos()
         INNER JOIN Productos prod ON pd.idProducto = prod.idProducto
         ORDER BY p.idPresupuesto";
 
-    using var cmd = new SqliteCommand(sql, conexion);
-    using var lector = cmd.ExecuteReader();
+            using var cmd = new SqliteCommand(sql, conexion);
+            using var lector = cmd.ExecuteReader();
 
-    while (lector.Read())
-    {
-        int idPresupuestoActual = Convert.ToInt32(lector["idPresupuesto"]);
-        Presupuesto presupuestoActual;
+            while (lector.Read())
+            {
+                int idPresupuestoActual = Convert.ToInt32(lector["idPresupuesto"]);
+                Presupuesto presupuestoActual;
 
-        // 2. Verificamos si ya tenemos este presupuesto en el diccionario
-        if (!presupuestosDict.TryGetValue(idPresupuestoActual, out presupuestoActual))
-        {
-            // 3. Si NO existe, es nuevo. Lo creamos y lo añadimos al diccionario.
-            presupuestoActual = new Presupuesto(
-                idPresupuestoActual,
-                lector["NombreDestinatario"].ToString(),
-                DateOnly.FromDateTime(Convert.ToDateTime(lector["FechaCreacion"])),
-                new List<PresupuestoDetalle>() // Empezamos con lista vacía
-            );
-            presupuestosDict.Add(idPresupuestoActual, presupuestoActual);
+                // 2. Verificamos si ya tenemos este presupuesto en el diccionario
+                if (!presupuestosDict.TryGetValue(idPresupuestoActual, out presupuestoActual))
+                {
+                    // 3. Si NO existe, es nuevo. Lo creamos y lo añadimos al diccionario.
+                    presupuestoActual = new Presupuesto(
+                        idPresupuestoActual,
+                        lector["NombreDestinatario"].ToString(),
+                        DateOnly.FromDateTime(Convert.ToDateTime(lector["FechaCreacion"])),
+                        new List<PresupuestoDetalle>() // Empezamos con lista vacía
+                    );
+                    presupuestosDict.Add(idPresupuestoActual, presupuestoActual);
+                }
+
+                // 4. Creamos el Producto y el Detalle de ESTA fila
+                Producto productoDeEstaFila = new Producto(
+                    Convert.ToInt32(lector["idProducto"]),
+                    lector["Descripcion"].ToString(),
+                    Convert.ToInt32(lector["Precio"])
+                );
+
+                PresupuestoDetalle detalleDeEstaFila = new PresupuestoDetalle(
+                    productoDeEstaFila,
+                    Convert.ToInt32(lector["Cantidad"])
+                );
+
+                // 5. Añadimos el detalle al presupuesto (que ya sea que existía o lo acabamos de crear)
+                presupuestoActual.AgregarPresupuestoDetalle(detalleDeEstaFila);
+            }
+
+            // 6. Al final, solo devolvemos todos los valores del diccionario.
+            //    (Esto soluciona el "Error 2" de perder el último ítem)
+            return presupuestosDict.Values.ToList();
         }
-
-        // 4. Creamos el Producto y el Detalle de ESTA fila
-        Producto productoDeEstaFila = new Producto(
-            Convert.ToInt32(lector["idProducto"]),
-            lector["Descripcion"].ToString(),
-            Convert.ToInt32(lector["Precio"])
-        );
-
-        PresupuestoDetalle detalleDeEstaFila = new PresupuestoDetalle(
-            productoDeEstaFila,
-            Convert.ToInt32(lector["Cantidad"])
-        );
-
-        // 5. Añadimos el detalle al presupuesto (que ya sea que existía o lo acabamos de crear)
-        presupuestoActual.AgregarPresupuestoDetalle(detalleDeEstaFila);
-    }
-
-    // 6. Al final, solo devolvemos todos los valores del diccionario.
-    //    (Esto soluciona el "Error 2" de perder el último ítem)
-    return presupuestosDict.Values.ToList();
-}
 
         //● Obtener detalles de un Presupuesto por su ID. (recibe un Id y devuelve un Presupuesto con sus productos y cantidades)
         public Presupuesto BuscarPresupuestoPorId(int id)
@@ -126,7 +126,8 @@ public List<Presupuesto> ListarPresupuestos()
                 if (presupuesto == null)
                 {
                     presupuesto = new Presupuesto(
-                        lector.GetInt32(Convert.ToInt32(lector["idPresupuesto"])),
+                        // ✅ SOLUCIÓN:
+                        Convert.ToInt32(lector["idPresupuesto"]),
                         lector["NombreDestinatario"].ToString(),
                         DateOnly.FromDateTime(Convert.ToDateTime(lector["FechaCreacion"])),
                         new List<PresupuestoDetalle>()
@@ -178,7 +179,7 @@ public List<Presupuesto> ListarPresupuestos()
 
                 using var cmdInsert = new SqliteCommand(sqlInsert, conexion, transaccion);
                 cmdInsert.Parameters.Add(new SqliteParameter("@idPres", idPresupuesto));
-                cmdInsert.Parameters.Add(new SqliteParameter("@idProd",  presupuestoDetalle.producto.idProducto));
+                cmdInsert.Parameters.Add(new SqliteParameter("@idProd", presupuestoDetalle.producto.idProducto));
                 cmdUpdate.Parameters.Add(new SqliteParameter("@Canti", presupuestoDetalle.cantidad));
 
                 cmdInsert.ExecuteNonQuery();
